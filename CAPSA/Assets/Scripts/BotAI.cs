@@ -6,12 +6,21 @@ using System.Linq;
 
 public class BotAI : MonoBehaviour
 {
+    [Header("MANUAL INPUT")]
     public GameObject Text;
-    public bool turn;
-    public GameObject[] Cards;
-    public GameObject[] CardsToBeSetToDeck;
-    public GameObject PlayingDeck;
     public GameObject NextPlayer;
+    public CharactersBehaviour CB;
+
+
+    [Header("NON/AUTO INPUT")]
+    public bool turn;
+    public PlayingDeckScript PlayingDeck;
+    public CardId[] Cards;
+    public CardId PlayingDeckCard;
+    public GameObject[] CardsToBeSetToDeck;
+    private BotAI Bot;
+    private PlayerBehaviour Player;
+    public ArrangeCardOnDeck ArrangeCardOnDeck;
 
     public int SpadeCardsCount;
     public int HeartCardsCount;
@@ -38,39 +47,53 @@ public class BotAI : MonoBehaviour
     // Use this for initialization
     void Start()
     {
+        if (NextPlayer.GetComponent<BotAI>() != null)
+        {
+            Bot = NextPlayer.GetComponent<BotAI>();
+        }
+        
+        if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+        {
+            Player = NextPlayer.GetComponent<PlayerBehaviour>();
+        }
+        PlayingDeck = PlayingDeckScript.main;
+        ArrangeCardOnDeck = this.GetComponent<ArrangeCardOnDeck>();
         Text.SetActive(false);
     }
 
     public void CheckThreeDiamond()
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         for (int i = 0; i < Cards.Length; i++)
         {
-            Cards[i] = this.transform.GetChild(i).gameObject;
+            Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
         }
 
         for (int i = 0; i < Cards.Length; i++)
         {
-            if ((int)Cards[i].GetComponent<CardId>().CardNumber == 3 && (int)Cards[i].GetComponent<CardId>().CardIdentity == 1)
+            if ((int)Cards[i].CardNumber == 3 && (int)Cards[i].CardIdentity == 1)
             {
-                PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                PlayingDeck.CleanTheChild();
                 Cards[i].transform.parent = PlayingDeck.transform;
-                Cards[i].GetComponent<CardId>().MoveTheCards();
-                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().SingleCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                if (NextPlayer.GetComponent<BotAI>() != null)
+                Cards[i].MoveTheCards();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.SingleCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
                 {
-                    NextPlayer.GetComponent<BotAI>().PlayTurn(0);
-                    turn = false;
-                } else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
-                {
-                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                    Bot.PlayTurn(0);
                     turn = false;
                 }
+                else if (Player != null)
+                {
+                    Player.PassCounter = 0;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
+                    turn = false;
+                }
+
+                UpdateText("FIRST MOVE");
             }
         }
     }
@@ -88,21 +111,30 @@ public class BotAI : MonoBehaviour
             StartCoroutine(FirstPlayTurn(PassCounter));
             Debug.Log(this.transform.name + " : First Play Turn, passcounter " + PassCounter);
         }
+
+        StartCoroutine(WaitUpdateText());
     }
 
-    public void CheckRemainingCards() {
+    IEnumerator WaitUpdateText()
+    {
+        yield return new WaitForSeconds(0.3f);
+        UpdateText(transform.name + " Turn");
+    }
+
+    public void CheckRemainingCards()
+    {
         StartCoroutine(CheckRemainingCardsEnum());
     }
 
     IEnumerator CheckRemainingCardsEnum()
     {
         yield return new WaitForSeconds(0.3f);
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
         if (Cards.Length <= 0)
         {
-            Text.SetActive(false);
-            Text.GetComponent<Text>().text = this.transform.name + " WIN!!";
-            Text.SetActive(true);
+            UpdateText(this.transform.name + " WIN!!");
+            CB.Win();
+            SFXManager.main.Losing();
             Time.timeScale = 0;
         }
     }
@@ -110,16 +142,19 @@ public class BotAI : MonoBehaviour
     IEnumerator WaitPlayTurn(int PassCounter)
     {
         yield return new WaitForSeconds(1);
+
+        PlayingDeckCard = PlayingDeck.transform.GetChild(0).GetComponent<CardId>();
+
         turn = true;
 
-        if (PlayingDeck.GetComponent<PlayingDeckScript>().Single)
+        if (PlayingDeck.Single)
         {
 
-            Cards = new GameObject[this.transform.childCount];
+            Cards = new CardId[this.transform.childCount];
 
             for (int i = 0; i < Cards.Length; i++)
             {
-                Cards[i] = this.transform.GetChild(i).gameObject;
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
             }
 
             for (int i = 0; i < Cards.Length; i++)
@@ -133,7 +168,7 @@ public class BotAI : MonoBehaviour
                 {
                     for (int s = 0; s < Cards.Length; s++)
                     {
-                        if ((int)Cards[s].GetComponent<CardId>().CardIdentity == i && (int)Cards[s].GetComponent<CardId>().SingleCardNumber == a)
+                        if ((int)Cards[s].CardIdentity == i && (int)Cards[s].SingleCardNumber == a)
                         {
                             Cards[s].transform.parent = this.transform;
                         }
@@ -143,48 +178,48 @@ public class BotAI : MonoBehaviour
 
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().SingleCardNumber == (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().SingleCardNumber && (int)Cards[i].GetComponent<CardId>().CardIdentity > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().CardIdentity)
+                if ((int)Cards[i].SingleCardNumber == (int)PlayingDeckCard.SingleCardNumber && (int)Cards[i].CardIdentity > (int)PlayingDeckCard.CardIdentity)
                 {
-                    PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                    PlayingDeck.CleanTheChild();
                     Cards[i].transform.parent = PlayingDeck.transform;
-                    Cards[i].GetComponent<CardId>().MoveTheCards();
-                    this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                    PlayingDeck.GetComponent<PlayingDeckScript>().SingleCard();
-                    PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                    Cards[i].MoveTheCards();
+                    ArrangeCardOnDeck.ArrangeCard();
+                    PlayingDeck.SingleCard();
+                    PlayingDeck.ArrangeTheCards();
                     CheckRemainingCards();
-                    if (NextPlayer.GetComponent<BotAI>() != null)
+                    if (Bot != null)
                     {
-                        NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                        Bot.PlayTurn(0);
                         turn = false;
                     }
-                    else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                    else if (Player != null)
                     {
-                        NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                        NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                        NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                        Player.PassCounter = 0;
+                        Player.turn = true;
+                        Player.TurnOnPassButton();
                         turn = false;
                     }
                     i = Cards.Length;
                 }
-                else if ((int)Cards[i].GetComponent<CardId>().SingleCardNumber > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().SingleCardNumber)
+                else if ((int)Cards[i].SingleCardNumber > (int)PlayingDeckCard.SingleCardNumber)
                 {
-                    PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                    PlayingDeck.CleanTheChild();
                     Cards[i].transform.parent = PlayingDeck.transform;
-                    Cards[i].GetComponent<CardId>().MoveTheCards();
-                    this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                    PlayingDeck.GetComponent<PlayingDeckScript>().SingleCard();
-                    PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                    Cards[i].MoveTheCards();
+                    ArrangeCardOnDeck.ArrangeCard();
+                    PlayingDeck.SingleCard();
+                    PlayingDeck.ArrangeTheCards();
                     CheckRemainingCards();
-                    if (NextPlayer.GetComponent<BotAI>() != null)
+                    if (Bot != null)
                     {
-                        NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                        Bot.PlayTurn(0);
                         turn = false;
                     }
-                    else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                    else if (Player != null)
                     {
-                        NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                        NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                        NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                        Player.PassCounter = 0;
+                        Player.turn = true;
+                        Player.TurnOnPassButton();
                         turn = false;
                     }
                     i = Cards.Length;
@@ -192,39 +227,43 @@ public class BotAI : MonoBehaviour
                 else if (i == Cards.Length - 1)
                 {
                     Debug.Log(this.transform.name + " = Pass");
-                    Text.SetActive(false);
-                    Text.GetComponent<Text>().text = "Pass ( " + (PassCounter + 1).ToString() + " )";
-                    Text.SetActive(true);
-                    this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                    PlayingDeck.GetComponent<PlayingDeckScript>().SingleCard();
-                    PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                    if (NextPlayer.GetComponent<BotAI>() != null)
+                    UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                    CB.Sad();
+                    ArrangeCardOnDeck.ArrangeCard();
+                    SFXManager.main.Passing();
+                    PlayingDeck.SingleCard();
+                    PlayingDeck.ArrangeTheCards();
+                    if (Bot != null)
                     {
-                        NextPlayer.GetComponent<BotAI>().PlayTurn(PassCounter + 1);
+                        Bot.PlayTurn(PassCounter + 1);
                         turn = false;
                     }
-                    else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                    else if (Player != null)
                     {
-                        NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = PassCounter + 1;
-                        NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                        NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                        Player.PassCounter = PassCounter + 1;
+                        Player.turn = true;
+                        Player.TurnOnPassButton();
                         turn = false;
                     }
                     i = Cards.Length;
+
+                    if (PassCounter + 1 >= 3)
+                    {
+                        PlayingDeck.CleanTheChild();
+                    }
                 }
             }
         }
 
-        if (PlayingDeck.GetComponent<PlayingDeckScript>().RoyalFlush)
+        if (PlayingDeck.FullHouse)
         {
-
-            Cards = new GameObject[this.transform.childCount];
+            Cards = new CardId[this.transform.childCount];
 
             if (Cards.Length >= 5)
             {
                 for (int i = 0; i < Cards.Length; i++)
                 {
-                    Cards[i] = this.transform.GetChild(i).gameObject;
+                    Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
                 }
 
                 for (int i = 0; i < Cards.Length; i++)
@@ -239,7 +278,7 @@ public class BotAI : MonoBehaviour
                     {
                         for (int c = 0; c < Cards.Length; c++)
                         {
-                            if ((int)Cards[c].GetComponent<CardId>().CardNumber == i && (int)Cards[c].GetComponent<CardId>().CardIdentity == s)
+                            if ((int)Cards[c].CardNumber == i && (int)Cards[c].CardIdentity == s)
                             {
                                 Cards[c].transform.parent = this.transform;
                             }
@@ -249,40 +288,74 @@ public class BotAI : MonoBehaviour
 
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber > (int)PlayingDeckCard.CardNumber)
                     {
                         if (Cards.Length - c >= 5)
                         {
-                            if ((int)Cards[c].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 2].GetComponent<CardId>().CardNumber && (int)Cards[c + 2].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 3].GetComponent<CardId>().CardNumber && (int)Cards[c + 3].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 4].GetComponent<CardId>().CardNumber)
+                            if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber == (int)Cards[c + 2].CardNumber && (int)Cards[c + 3].CardNumber == (int)Cards[c + 4].CardNumber)
                             {
-                                PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                                PlayingDeck.CleanTheChild();
 
                                 Cards[c].transform.parent = PlayingDeck.transform;
-                                Cards[c].GetComponent<CardId>().MoveTheCards();
+                                Cards[c].MoveTheCards();
                                 Cards[c + 1].transform.parent = PlayingDeck.transform;
-                                Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 1].MoveTheCards();
                                 Cards[c + 2].transform.parent = PlayingDeck.transform;
-                                Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 2].MoveTheCards();
                                 Cards[c + 3].transform.parent = PlayingDeck.transform;
-                                Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 3].MoveTheCards();
                                 Cards[c + 4].transform.parent = PlayingDeck.transform;
-                                Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 4].MoveTheCards();
 
-                                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                                ArrangeCardOnDeck.ArrangeCard();
                                 CheckRemainingCards();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().RoyalFlushCard();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                                PlayingDeck.FullHouseCard();
+                                PlayingDeck.ArrangeTheCards();
 
-                                if (NextPlayer.GetComponent<BotAI>() != null)
+                                if (Bot != null)
                                 {
-                                    NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                                    Bot.PlayTurn(0);
                                     turn = false;
                                 }
-                                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                                else if (Player != null)
                                 {
-                                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
+                                    turn = false;
+                                }
+                                c = Cards.Length;
+                            }
+                            else if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 2].CardNumber == (int)Cards[c + 3].CardNumber && (int)Cards[c + 3].CardNumber == (int)Cards[c + 4].CardNumber)
+                            {
+                                PlayingDeck.CleanTheChild();
+
+                                Cards[c].transform.parent = PlayingDeck.transform;
+                                Cards[c].MoveTheCards();
+                                Cards[c + 1].transform.parent = PlayingDeck.transform;
+                                Cards[c + 1].MoveTheCards();
+                                Cards[c + 2].transform.parent = PlayingDeck.transform;
+                                Cards[c + 2].MoveTheCards();
+                                Cards[c + 3].transform.parent = PlayingDeck.transform;
+                                Cards[c + 3].MoveTheCards();
+                                Cards[c + 4].transform.parent = PlayingDeck.transform;
+                                Cards[c + 4].MoveTheCards();
+
+                                ArrangeCardOnDeck.ArrangeCard();
+                                CheckRemainingCards();
+                                PlayingDeck.FullHouseCard();
+                                PlayingDeck.ArrangeTheCards();
+
+                                if (Bot != null)
+                                {
+                                    Bot.PlayTurn(0);
+                                    turn = false;
+                                }
+                                else if (Player != null)
+                                {
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
                                     turn = false;
                                 }
                                 c = Cards.Length;
@@ -295,37 +368,151 @@ public class BotAI : MonoBehaviour
             if (turn)
             {
                 Debug.Log(this.transform.name + " = Pass");
-                Text.SetActive(false);
-                Text.GetComponent<Text>().text = "Pass ( " + (PassCounter + 1).ToString() + " )";
-                Text.SetActive(true);
-                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().RoyalFlushCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                if (NextPlayer.GetComponent<BotAI>() != null)
+                SFXManager.main.Passing();
+                UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                CB.Sad();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.FullHouseCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
                 {
-                    NextPlayer.GetComponent<BotAI>().PlayTurn(PassCounter + 1);
+                    Bot.PlayTurn(PassCounter + 1);
                     turn = false;
                 }
-                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                else if (Player != null)
                 {
-                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = PassCounter + 1;
-                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                    Player.PassCounter = PassCounter + 1;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
                     turn = false;
+                }
+
+                if (PassCounter + 1 >= 3)
+                {
+                    PlayingDeck.CleanTheChild();
                 }
             }
         }
 
-        if (PlayingDeck.GetComponent<PlayingDeckScript>().Flush)
+        if (PlayingDeck.RoyalFlush)
         {
 
-            Cards = new GameObject[this.transform.childCount];
+            Cards = new CardId[this.transform.childCount];
 
             if (Cards.Length >= 5)
             {
                 for (int i = 0; i < Cards.Length; i++)
                 {
-                    Cards[i] = this.transform.GetChild(i).gameObject;
+                    Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
+                }
+
+                for (int i = 0; i < Cards.Length; i++)
+                {
+                    Cards[i].transform.parent = null;
+                }
+
+
+                for (int s = 1; s <= 4; s++)
+                {
+                    for (int i = 2; i <= 14; i++)
+                    {
+                        for (int c = 0; c < Cards.Length; c++)
+                        {
+                            if ((int)Cards[c].CardNumber == i && (int)Cards[c].CardIdentity == s)
+                            {
+                                Cards[c].transform.parent = this.transform;
+                            }
+                        }
+                    }
+                }
+
+                for (int c = 0; c < Cards.Length; c++)
+                {
+                    if ((int)Cards[c].CardNumber > (int)PlayingDeckCard.CardNumber)
+                    {
+                        if (Cards.Length - c >= 5)
+                        {
+                            if ((int)Cards[c].CardIdentity == (int)Cards[c + 1].CardIdentity && (int)Cards[c + 1].CardIdentity == (int)Cards[c + 2].CardIdentity && (int)Cards[c + 2].CardIdentity == (int)Cards[c + 3].CardIdentity && (int)Cards[c + 3].CardIdentity == (int)Cards[c + 4].CardIdentity)
+                            {
+                                if ((int)Cards[c].CardNumber + 1 == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber + 1 == (int)Cards[c + 2].CardNumber && (int)Cards[c + 2].CardNumber + 1 == (int)Cards[c + 3].CardNumber && (int)Cards[c + 3].CardNumber + 1 == (int)Cards[c + 4].CardNumber)
+                                {
+                                    PlayingDeck.CleanTheChild();
+
+                                    Cards[c].transform.parent = PlayingDeck.transform;
+                                    Cards[c].MoveTheCards();
+                                    Cards[c + 1].transform.parent = PlayingDeck.transform;
+                                    Cards[c + 1].MoveTheCards();
+                                    Cards[c + 2].transform.parent = PlayingDeck.transform;
+                                    Cards[c + 2].MoveTheCards();
+                                    Cards[c + 3].transform.parent = PlayingDeck.transform;
+                                    Cards[c + 3].MoveTheCards();
+                                    Cards[c + 4].transform.parent = PlayingDeck.transform;
+                                    Cards[c + 4].MoveTheCards();
+
+                                    ArrangeCardOnDeck.ArrangeCard();
+                                    CheckRemainingCards();
+                                    PlayingDeck.RoyalFlushCard();
+                                    PlayingDeck.ArrangeTheCards();
+
+                                    if (Bot != null)
+                                    {
+                                        Bot.PlayTurn(0);
+                                        turn = false;
+                                    }
+                                    else if (Player != null)
+                                    {
+                                        Player.PassCounter = 0;
+                                        Player.turn = true;
+                                        Player.TurnOnPassButton();
+                                        turn = false;
+                                    }
+                                    c = Cards.Length;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (turn)
+            {
+                Debug.Log(this.transform.name + " = Pass");
+                SFXManager.main.Passing();
+                UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                CB.Sad();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.RoyalFlushCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
+                {
+                    Bot.PlayTurn(PassCounter + 1);
+                    turn = false;
+                }
+                else if (Player != null)
+                {
+                    Player.PassCounter = PassCounter + 1;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
+                    turn = false;
+                }
+
+                if (PassCounter + 1 >= 3)
+                {
+                    PlayingDeck.CleanTheChild();
+                }
+            }
+        }
+
+        if (PlayingDeck.Flush)
+        {
+
+            Cards = new CardId[this.transform.childCount];
+
+            if (Cards.Length >= 5)
+            {
+                for (int i = 0; i < Cards.Length; i++)
+                {
+                    Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
                 }
 
                 for (int i = 0; i < Cards.Length; i++)
@@ -338,7 +525,7 @@ public class BotAI : MonoBehaviour
                 {
                     for (int c = 0; c < Cards.Length; c++)
                     {
-                        if ((int)Cards[c].GetComponent<CardId>().CardIdentity == s)
+                        if ((int)Cards[c].CardIdentity == s)
                         {
                             Cards[c].transform.parent = this.transform;
                         }
@@ -347,40 +534,40 @@ public class BotAI : MonoBehaviour
 
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber > (int)PlayingDeckCard.CardNumber)
                     {
                         if (Cards.Length - c >= 5)
                         {
-                            if ((int)Cards[c].GetComponent<CardId>().CardIdentity == (int)Cards[c + 1].GetComponent<CardId>().CardIdentity && (int)Cards[c + 1].GetComponent<CardId>().CardIdentity == (int)Cards[c + 2].GetComponent<CardId>().CardIdentity && (int)Cards[c + 2].GetComponent<CardId>().CardIdentity == (int)Cards[c + 3].GetComponent<CardId>().CardIdentity && (int)Cards[c + 3].GetComponent<CardId>().CardIdentity == (int)Cards[c + 4].GetComponent<CardId>().CardIdentity)
+                            if ((int)Cards[c].CardIdentity == (int)Cards[c + 1].CardIdentity && (int)Cards[c + 1].CardIdentity == (int)Cards[c + 2].CardIdentity && (int)Cards[c + 2].CardIdentity == (int)Cards[c + 3].CardIdentity && (int)Cards[c + 3].CardIdentity == (int)Cards[c + 4].CardIdentity)
                             {
-                                PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                                PlayingDeck.CleanTheChild();
 
                                 Cards[c].transform.parent = PlayingDeck.transform;
-                                Cards[c].GetComponent<CardId>().MoveTheCards();
+                                Cards[c].MoveTheCards();
                                 Cards[c + 1].transform.parent = PlayingDeck.transform;
-                                Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 1].MoveTheCards();
                                 Cards[c + 2].transform.parent = PlayingDeck.transform;
-                                Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 2].MoveTheCards();
                                 Cards[c + 3].transform.parent = PlayingDeck.transform;
-                                Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 3].MoveTheCards();
                                 Cards[c + 4].transform.parent = PlayingDeck.transform;
-                                Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 4].MoveTheCards();
 
-                                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                                ArrangeCardOnDeck.ArrangeCard();
                                 CheckRemainingCards();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().FlushCard();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                                PlayingDeck.FlushCard();
+                                PlayingDeck.ArrangeTheCards();
 
-                                if (NextPlayer.GetComponent<BotAI>() != null)
+                                if (Bot != null)
                                 {
-                                    NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                                    Bot.PlayTurn(0);
                                     turn = false;
                                 }
-                                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                                else if (Player != null)
                                 {
-                                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
                                     turn = false;
                                 }
                                 c = Cards.Length;
@@ -393,37 +580,42 @@ public class BotAI : MonoBehaviour
             if (turn)
             {
                 Debug.Log(this.transform.name + " = Pass");
-                Text.SetActive(false);
-                Text.GetComponent<Text>().text = "Pass ( " + (PassCounter + 1).ToString() + " )";
-                Text.SetActive(true);
-                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().FlushCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                if (NextPlayer.GetComponent<BotAI>() != null)
+                SFXManager.main.Passing();
+                UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                CB.Sad();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.FlushCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
                 {
-                    NextPlayer.GetComponent<BotAI>().PlayTurn(PassCounter + 1);
+                    Bot.PlayTurn(PassCounter + 1);
                     turn = false;
                 }
-                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                else if (Player != null)
                 {
-                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = PassCounter + 1;
-                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                    Player.PassCounter = PassCounter + 1;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
                     turn = false;
+                }
+
+                if (PassCounter + 1 >= 3)
+                {
+                    PlayingDeck.CleanTheChild();
                 }
             }
         }
 
 
-        if (PlayingDeck.GetComponent<PlayingDeckScript>().Straight)
+        if (PlayingDeck.Straight)
         {
-            Cards = new GameObject[this.transform.childCount];
+            Cards = new CardId[this.transform.childCount];
 
             if (Cards.Length >= 5)
             {
                 for (int i = 0; i < Cards.Length; i++)
                 {
-                    Cards[i] = this.transform.GetChild(i).gameObject;
+                    Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
                 }
 
                 for (int i = 0; i < Cards.Length; i++)
@@ -436,7 +628,7 @@ public class BotAI : MonoBehaviour
                 {
                     for (int s = 2; s <= 14; s++)
                     {
-                        if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                        if ((int)Cards[c].CardNumber == s)
                         {
                             Cards[c].transform.parent = this.transform;
                         }
@@ -445,40 +637,40 @@ public class BotAI : MonoBehaviour
 
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber > (int)PlayingDeckCard.CardNumber)
                     {
                         if (Cards.Length - c >= 5)
                         {
-                            if ((int)Cards[c].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 2].GetComponent<CardId>().CardNumber && (int)Cards[c + 2].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 3].GetComponent<CardId>().CardNumber && (int)Cards[c + 3].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 4].GetComponent<CardId>().CardNumber)
+                            if ((int)Cards[c].CardNumber + 1 == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber + 1 == (int)Cards[c + 2].CardNumber && (int)Cards[c + 2].CardNumber + 1 == (int)Cards[c + 3].CardNumber && (int)Cards[c + 3].CardNumber + 1 == (int)Cards[c + 4].CardNumber)
                             {
-                                PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                                PlayingDeck.CleanTheChild();
 
                                 Cards[c].transform.parent = PlayingDeck.transform;
-                                Cards[c].GetComponent<CardId>().MoveTheCards();
+                                Cards[c].MoveTheCards();
                                 Cards[c + 1].transform.parent = PlayingDeck.transform;
-                                Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 1].MoveTheCards();
                                 Cards[c + 2].transform.parent = PlayingDeck.transform;
-                                Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 2].MoveTheCards();
                                 Cards[c + 3].transform.parent = PlayingDeck.transform;
-                                Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 3].MoveTheCards();
                                 Cards[c + 4].transform.parent = PlayingDeck.transform;
-                                Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 4].MoveTheCards();
 
-                                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                                ArrangeCardOnDeck.ArrangeCard();
                                 CheckRemainingCards();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().StraightCard();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                                PlayingDeck.StraightCard();
+                                PlayingDeck.ArrangeTheCards();
 
-                                if (NextPlayer.GetComponent<BotAI>() != null)
+                                if (Bot != null)
                                 {
-                                    NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                                    Bot.PlayTurn(0);
                                     turn = false;
                                 }
-                                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                                else if (Player != null)
                                 {
-                                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
                                     turn = false;
                                 }
                                 c = Cards.Length;
@@ -491,37 +683,42 @@ public class BotAI : MonoBehaviour
             if (turn)
             {
                 Debug.Log(this.transform.name + " = Pass");
-                Text.SetActive(false);
-                Text.GetComponent<Text>().text = "Pass ( " + (PassCounter + 1).ToString() + " )";
-                Text.SetActive(true);
-                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().StraightCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                if (NextPlayer.GetComponent<BotAI>() != null)
+                SFXManager.main.Passing();
+                UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                CB.Sad();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.StraightCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
                 {
-                    NextPlayer.GetComponent<BotAI>().PlayTurn(PassCounter + 1);
+                    Bot.PlayTurn(PassCounter + 1);
                     turn = false;
                 }
-                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                else if (Player != null)
                 {
-                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = PassCounter + 1;
-                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                    Player.PassCounter = PassCounter + 1;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
                     turn = false;
+                }
+
+                if (PassCounter + 1 >= 3)
+                {
+                    PlayingDeck.CleanTheChild();
                 }
             }
         }
 
 
-        if (PlayingDeck.GetComponent<PlayingDeckScript>().FourOfKind)
+        if (PlayingDeck.FourOfKind)
         {
-            Cards = new GameObject[this.transform.childCount];
+            Cards = new CardId[this.transform.childCount];
 
             if (Cards.Length >= 5)
             {
                 for (int i = 0; i < Cards.Length; i++)
                 {
-                    Cards[i] = this.transform.GetChild(i).gameObject;
+                    Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
                 }
 
                 for (int i = 0; i < Cards.Length; i++)
@@ -533,7 +730,7 @@ public class BotAI : MonoBehaviour
                 {
                     for (int c = 0; c < Cards.Length; c++)
                     {
-                        if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                        if ((int)Cards[c].CardNumber == s)
                         {
                             Cards[c].transform.parent = this.transform;
                         }
@@ -542,40 +739,75 @@ public class BotAI : MonoBehaviour
 
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber > (int)PlayingDeckCard.CardNumber)
                     {
                         if (Cards.Length - c >= 5)
                         {
-                            if ((int)Cards[c].GetComponent<CardId>().CardNumber == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber == (int)Cards[c + 2].GetComponent<CardId>().CardNumber && (int)Cards[c + 2].GetComponent<CardId>().CardNumber == (int)Cards[c + 3].GetComponent<CardId>().CardNumber)
+                            if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber == (int)Cards[c + 2].CardNumber && (int)Cards[c + 2].CardNumber == (int)Cards[c + 3].CardNumber)
                             {
-                                PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                                PlayingDeck.CleanTheChild();
 
                                 Cards[c].transform.parent = PlayingDeck.transform;
-                                Cards[c].GetComponent<CardId>().MoveTheCards();
+                                Cards[c].MoveTheCards();
                                 Cards[c + 1].transform.parent = PlayingDeck.transform;
-                                Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 1].MoveTheCards();
                                 Cards[c + 2].transform.parent = PlayingDeck.transform;
-                                Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 2].MoveTheCards();
                                 Cards[c + 3].transform.parent = PlayingDeck.transform;
-                                Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 3].MoveTheCards();
                                 Cards[c + 4].transform.parent = PlayingDeck.transform;
-                                Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 4].MoveTheCards();
 
-                                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                                ArrangeCardOnDeck.ArrangeCard();
                                 CheckRemainingCards();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().FourOfKindCard();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                                PlayingDeck.FourOfKindCard();
+                                PlayingDeck.ArrangeTheCards();
 
-                                if (NextPlayer.GetComponent<BotAI>() != null)
+                                if (Bot != null)
                                 {
-                                    NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                                    Bot.PlayTurn(0);
                                     turn = false;
                                 }
-                                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                                else if (Player != null)
                                 {
-                                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
+                                    turn = false;
+                                }
+                                c = Cards.Length;
+                                Debug.Log(this.transform.name + " FourOfKindTester");
+                            }
+                            else if ((int)Cards[c + 1].CardNumber == (int)Cards[c + 2].CardNumber && (int)Cards[c + 2].CardNumber == (int)Cards[c + 3].CardNumber && (int)Cards[c + 3].CardNumber == (int)Cards[c + 4].CardNumber)
+                            {
+                                PlayingDeck.CleanTheChild();
+
+                                Cards[c].transform.parent = PlayingDeck.transform;
+                                Cards[c].MoveTheCards();
+                                Cards[c + 1].transform.parent = PlayingDeck.transform;
+                                Cards[c + 1].MoveTheCards();
+                                Cards[c + 2].transform.parent = PlayingDeck.transform;
+                                Cards[c + 2].MoveTheCards();
+                                Cards[c + 3].transform.parent = PlayingDeck.transform;
+                                Cards[c + 3].MoveTheCards();
+                                Cards[c + 4].transform.parent = PlayingDeck.transform;
+                                Cards[c + 4].MoveTheCards();
+
+                                ArrangeCardOnDeck.ArrangeCard();
+                                CheckRemainingCards();
+                                PlayingDeck.FourOfKindCard();
+                                PlayingDeck.ArrangeTheCards();
+
+                                if (Bot != null)
+                                {
+                                    Bot.PlayTurn(0);
+                                    turn = false;
+                                }
+                                else if (Player != null)
+                                {
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
                                     turn = false;
                                 }
                                 c = Cards.Length;
@@ -589,36 +821,41 @@ public class BotAI : MonoBehaviour
             if (turn)
             {
                 Debug.Log(this.transform.name + " = Pass");
-                Text.SetActive(false);
-                Text.GetComponent<Text>().text = "Pass ( " + (PassCounter + 1).ToString() + " )";
-                Text.SetActive(true);
-                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().FourOfKindCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                if (NextPlayer.GetComponent<BotAI>() != null)
+                SFXManager.main.Passing();
+                UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                CB.Sad();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.FourOfKindCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
                 {
-                    NextPlayer.GetComponent<BotAI>().PlayTurn(PassCounter + 1);
+                    Bot.PlayTurn(PassCounter + 1);
                     turn = false;
                 }
-                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                else if (Player != null)
                 {
-                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = PassCounter + 1;
-                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                    Player.PassCounter = PassCounter + 1;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
                     turn = false;
+                }
+
+                if (PassCounter + 1 >= 3)
+                {
+                    PlayingDeck.CleanTheChild();
                 }
             }
         }
 
-        if (PlayingDeck.GetComponent<PlayingDeckScript>().ThreeOfKind)
+        if (PlayingDeck.ThreeOfKind)
         {
-            Cards = new GameObject[this.transform.childCount];
+            Cards = new CardId[this.transform.childCount];
 
             if (Cards.Length >= 3)
             {
                 for (int i = 0; i < Cards.Length; i++)
                 {
-                    Cards[i] = this.transform.GetChild(i).gameObject;
+                    Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
                 }
 
                 for (int i = 0; i < Cards.Length; i++)
@@ -630,7 +867,7 @@ public class BotAI : MonoBehaviour
                 {
                     for (int c = 0; c < Cards.Length; c++)
                     {
-                        if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                        if ((int)Cards[c].CardNumber == s)
                         {
                             Cards[c].transform.parent = this.transform;
                         }
@@ -639,36 +876,36 @@ public class BotAI : MonoBehaviour
 
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber > (int)PlayingDeckCard.CardNumber)
                     {
                         if (Cards.Length - c >= 3)
                         {
-                            if ((int)Cards[c].GetComponent<CardId>().CardNumber == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber == (int)Cards[c + 2].GetComponent<CardId>().CardNumber)
+                            if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber == (int)Cards[c + 2].CardNumber)
                             {
-                                PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                                PlayingDeck.CleanTheChild();
 
                                 Cards[c].transform.parent = PlayingDeck.transform;
-                                Cards[c].GetComponent<CardId>().MoveTheCards();
+                                Cards[c].MoveTheCards();
                                 Cards[c + 1].transform.parent = PlayingDeck.transform;
-                                Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 1].MoveTheCards();
                                 Cards[c + 2].transform.parent = PlayingDeck.transform;
-                                Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 2].MoveTheCards();
 
-                                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                                ArrangeCardOnDeck.ArrangeCard();
                                 CheckRemainingCards();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().ThreeOfKindCard();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                                PlayingDeck.ThreeOfKindCard();
+                                PlayingDeck.ArrangeTheCards();
 
-                                if (NextPlayer.GetComponent<BotAI>() != null)
+                                if (Bot != null)
                                 {
-                                    NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                                    Bot.PlayTurn(0);
                                     turn = false;
                                 }
-                                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                                else if (Player != null)
                                 {
-                                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
                                     turn = false;
                                 }
                                 c = Cards.Length;
@@ -682,37 +919,42 @@ public class BotAI : MonoBehaviour
             if (turn)
             {
                 Debug.Log(this.transform.name + " = Pass");
-                Text.SetActive(false);
-                Text.GetComponent<Text>().text = "Pass ( " + (PassCounter + 1).ToString() + " )";
-                Text.SetActive(true);
-                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ThreeOfKindCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                if (NextPlayer.GetComponent<BotAI>() != null)
+                SFXManager.main.Passing();
+                UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                CB.Sad();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.ThreeOfKindCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
                 {
-                    NextPlayer.GetComponent<BotAI>().PlayTurn(PassCounter + 1);
+                    Bot.PlayTurn(PassCounter + 1);
                     turn = false;
                 }
-                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                else if (Player != null)
                 {
-                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = PassCounter + 1;
-                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                    Player.PassCounter = PassCounter + 1;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
                     turn = false;
+                }
+
+                if (PassCounter + 1 >= 3)
+                {
+                    PlayingDeck.CleanTheChild();
                 }
             }
         }
 
-        if (PlayingDeck.GetComponent<PlayingDeckScript>().Pair)
+        if (PlayingDeck.Pair)
         {
 
-            Cards = new GameObject[this.transform.childCount];
+            Cards = new CardId[this.transform.childCount];
 
             if (Cards.Length >= 2)
             {
                 for (int i = 0; i < Cards.Length; i++)
                 {
-                    Cards[i] = this.transform.GetChild(i).gameObject;
+                    Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
                 }
 
                 for (int i = 0; i < Cards.Length; i++)
@@ -724,7 +966,7 @@ public class BotAI : MonoBehaviour
                 {
                     for (int c = 0; c < Cards.Length; c++)
                     {
-                        if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                        if ((int)Cards[c].CardNumber == s)
                         {
                             Cards[c].transform.parent = this.transform;
                         }
@@ -733,34 +975,34 @@ public class BotAI : MonoBehaviour
 
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber > (int)PlayingDeck.transform.GetChild(0).GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber > (int)PlayingDeckCard.CardNumber)
                     {
                         if (Cards.Length - c >= 2)
                         {
-                            if ((int)Cards[c].GetComponent<CardId>().CardNumber == (int)Cards[c + 1].GetComponent<CardId>().CardNumber)
+                            if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber)
                             {
-                                PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                                PlayingDeck.CleanTheChild();
 
                                 Cards[c].transform.parent = PlayingDeck.transform;
-                                Cards[c].GetComponent<CardId>().MoveTheCards();
+                                Cards[c].MoveTheCards();
                                 Cards[c + 1].transform.parent = PlayingDeck.transform;
-                                Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                                Cards[c + 1].MoveTheCards();
 
-                                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                                ArrangeCardOnDeck.ArrangeCard();
                                 CheckRemainingCards();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().PairCard();
-                                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                                PlayingDeck.PairCard();
+                                PlayingDeck.ArrangeTheCards();
 
-                                if (NextPlayer.GetComponent<BotAI>() != null)
+                                if (Bot != null)
                                 {
-                                    NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                                    Bot.PlayTurn(0);
                                     turn = false;
                                 }
-                                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                                else if (Player != null)
                                 {
-                                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                                    Player.PassCounter = 0;
+                                    Player.turn = true;
+                                    Player.TurnOnPassButton();
                                     turn = false;
                                 }
                                 c = Cards.Length;
@@ -774,23 +1016,28 @@ public class BotAI : MonoBehaviour
             if (turn)
             {
                 Debug.Log(this.transform.name + " = Pass");
-                Text.SetActive(false);
-                Text.GetComponent<Text>().text = "Pass ( " + (PassCounter + 1).ToString() + " )";
-                Text.SetActive(true);
-                this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().PairCard();
-                PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-                if (NextPlayer.GetComponent<BotAI>() != null)
+                SFXManager.main.Passing();
+                UpdateText("Pass ( " + (PassCounter + 1).ToString() + " )");
+                CB.Sad();
+                ArrangeCardOnDeck.ArrangeCard();
+                PlayingDeck.PairCard();
+                PlayingDeck.ArrangeTheCards();
+                if (Bot != null)
                 {
-                    NextPlayer.GetComponent<BotAI>().PlayTurn(PassCounter + 1);
+                    Bot.PlayTurn(PassCounter + 1);
                     turn = false;
                 }
-                else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                else if (Player != null)
                 {
-                    NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = PassCounter + 1;
-                    NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                    NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                    Player.PassCounter = PassCounter + 1;
+                    Player.turn = true;
+                    Player.TurnOnPassButton();
                     turn = false;
+                }
+
+                if (PassCounter + 1 >= 3)
+                {
+                    PlayingDeck.CleanTheChild();
                 }
             }
         }
@@ -799,6 +1046,11 @@ public class BotAI : MonoBehaviour
     IEnumerator FirstPlayTurn(int PassCounter)
     {
         turn = true;
+        yield return new WaitForSeconds(1f);
+        if (turn)
+        {
+            StartCoroutine(CheckFullHouse(PassCounter));
+        }
         yield return new WaitForSeconds(0.1f);
         if (turn)
         {
@@ -836,15 +1088,15 @@ public class BotAI : MonoBehaviour
         }
     }
 
-    IEnumerator CheckRoyalFlush(int PassCounter)
+    IEnumerator CheckFullHouse(int PassCounter)
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         if (Cards.Length >= 5)
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                Cards[i] = this.transform.GetChild(i).gameObject;
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
             }
 
             for (int i = 0; i < Cards.Length; i++)
@@ -859,7 +1111,7 @@ public class BotAI : MonoBehaviour
                 {
                     for (int c = 0; c < Cards.Length; c++)
                     {
-                        if ((int)Cards[c].GetComponent<CardId>().CardNumber == i && (int)Cards[c].GetComponent<CardId>().CardIdentity == s)
+                        if ((int)Cards[c].CardNumber == i && (int)Cards[c].CardIdentity == s)
                         {
                             Cards[c].transform.parent = this.transform;
                         }
@@ -871,39 +1123,156 @@ public class BotAI : MonoBehaviour
             {
                 if (Cards.Length - c >= 5)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 2].GetComponent<CardId>().CardNumber && (int)Cards[c + 2].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 3].GetComponent<CardId>().CardNumber && (int)Cards[c + 3].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 4].GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber == (int)Cards[c + 2].CardNumber && (int)Cards[c + 3].CardNumber == (int)Cards[c + 4].CardNumber)
                     {
-                        PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                        PlayingDeck.CleanTheChild();
 
                         Cards[c].transform.parent = PlayingDeck.transform;
-                        Cards[c].GetComponent<CardId>().MoveTheCards();
+                        Cards[c].MoveTheCards();
                         Cards[c + 1].transform.parent = PlayingDeck.transform;
-                        Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 1].MoveTheCards();
                         Cards[c + 2].transform.parent = PlayingDeck.transform;
-                        Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 2].MoveTheCards();
                         Cards[c + 3].transform.parent = PlayingDeck.transform;
-                        Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 3].MoveTheCards();
                         Cards[c + 4].transform.parent = PlayingDeck.transform;
-                        Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 4].MoveTheCards();
 
-                        this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                        ArrangeCardOnDeck.ArrangeCard();
                         CheckRemainingCards();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().RoyalFlushCard();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                        PlayingDeck.FullHouseCard();
+                        PlayingDeck.UpdateText("Full House");
+                        PlayingDeck.ArrangeTheCards();
 
-                        if (NextPlayer.GetComponent<BotAI>() != null)
+                        if (Bot != null)
                         {
-                            NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                            Bot.PlayTurn(0);
                             turn = false;
                         }
-                        else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                        else if (Player != null)
                         {
-                            NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                            NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                            NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                            Player.PassCounter = 0;
+                            Player.turn = true;
+                            Player.TurnOnPassButton();
                             turn = false;
                         }
                         c = Cards.Length;
+                    }
+                    else if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 2].CardNumber == (int)Cards[c + 3].CardNumber && (int)Cards[c + 3].CardNumber == (int)Cards[c + 4].CardNumber)
+                    {
+                        PlayingDeck.CleanTheChild();
+
+                        Cards[c].transform.parent = PlayingDeck.transform;
+                        Cards[c].MoveTheCards();
+                        Cards[c + 1].transform.parent = PlayingDeck.transform;
+                        Cards[c + 1].MoveTheCards();
+                        Cards[c + 2].transform.parent = PlayingDeck.transform;
+                        Cards[c + 2].MoveTheCards();
+                        Cards[c + 3].transform.parent = PlayingDeck.transform;
+                        Cards[c + 3].MoveTheCards();
+                        Cards[c + 4].transform.parent = PlayingDeck.transform;
+                        Cards[c + 4].MoveTheCards();
+
+                        ArrangeCardOnDeck.ArrangeCard();
+                        CheckRemainingCards();
+                        PlayingDeck.FullHouseCard();
+                        PlayingDeck.UpdateText("Full House");
+                        PlayingDeck.ArrangeTheCards();
+
+                        if (Bot != null)
+                        {
+                            Bot.PlayTurn(0);
+                            turn = false;
+                        }
+                        else if (Player != null)
+                        {
+                            Player.PassCounter = 0;
+                            Player.turn = true;
+                            Player.TurnOnPassButton();
+                            turn = false;
+                        }
+                        c = Cards.Length;
+                    }
+                }
+            }
+        }
+
+        Debug.Log(this.transform.name + " Full House Checked ************* ");
+        yield return null;
+    }
+
+    IEnumerator CheckRoyalFlush(int PassCounter)
+    {
+        Cards = new CardId[this.transform.childCount];
+
+        if (Cards.Length >= 5)
+        {
+            for (int i = 0; i < Cards.Length; i++)
+            {
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
+            }
+
+            for (int i = 0; i < Cards.Length; i++)
+            {
+                Cards[i].transform.parent = null;
+            }
+
+
+            for (int s = 1; s <= 4; s++)
+            {
+                for (int i = 2; i <= 14; i++)
+                {
+                    for (int c = 0; c < Cards.Length; c++)
+                    {
+                        if ((int)Cards[c].CardNumber == i && (int)Cards[c].CardIdentity == s)
+                        {
+                            Cards[c].transform.parent = this.transform;
+                        }
+                    }
+                }
+            }
+
+            for (int c = 0; c < Cards.Length; c++)
+            {
+                if (Cards.Length - c >= 5)
+                {
+                    if ((int)Cards[c].CardIdentity == (int)Cards[c + 1].CardIdentity && (int)Cards[c + 1].CardIdentity == (int)Cards[c + 2].CardIdentity && (int)Cards[c + 2].CardIdentity == (int)Cards[c + 3].CardIdentity && (int)Cards[c + 3].CardIdentity == (int)Cards[c + 4].CardIdentity)
+                    {
+                        if ((int)Cards[c].CardNumber + 1 == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber + 1 == (int)Cards[c + 2].CardNumber && (int)Cards[c + 2].CardNumber + 1 == (int)Cards[c + 3].CardNumber && (int)Cards[c + 3].CardNumber + 1 == (int)Cards[c + 4].CardNumber)
+                        {
+                            PlayingDeck.CleanTheChild();
+
+                            Cards[c].transform.parent = PlayingDeck.transform;
+                            Cards[c].MoveTheCards();
+                            Cards[c + 1].transform.parent = PlayingDeck.transform;
+                            Cards[c + 1].MoveTheCards();
+                            Cards[c + 2].transform.parent = PlayingDeck.transform;
+                            Cards[c + 2].MoveTheCards();
+                            Cards[c + 3].transform.parent = PlayingDeck.transform;
+                            Cards[c + 3].MoveTheCards();
+                            Cards[c + 4].transform.parent = PlayingDeck.transform;
+                            Cards[c + 4].MoveTheCards();
+
+                            ArrangeCardOnDeck.ArrangeCard();
+                            CheckRemainingCards();
+                            PlayingDeck.RoyalFlushCard();
+                            PlayingDeck.UpdateText("Royal Flush");
+                            PlayingDeck.ArrangeTheCards();
+
+                            if (Bot != null)
+                            {
+                                Bot.PlayTurn(0);
+                                turn = false;
+                            }
+                            else if (Player != null)
+                            {
+                                Player.PassCounter = 0;
+                                Player.turn = true;
+                                Player.TurnOnPassButton();
+                                turn = false;
+                            }
+                            c = Cards.Length;
+                        }
                     }
                 }
             }
@@ -915,13 +1284,13 @@ public class BotAI : MonoBehaviour
 
     IEnumerator CheckFlush(int PassCounter)
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         if (Cards.Length >= 5)
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                Cards[i] = this.transform.GetChild(i).gameObject;
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
             }
 
             for (int i = 0; i < Cards.Length; i++)
@@ -934,7 +1303,7 @@ public class BotAI : MonoBehaviour
             {
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardIdentity == s)
+                    if ((int)Cards[c].CardIdentity == s)
                     {
                         Cards[c].transform.parent = this.transform;
                     }
@@ -945,36 +1314,37 @@ public class BotAI : MonoBehaviour
             {
                 if (Cards.Length - c >= 5)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardIdentity == (int)Cards[c + 1].GetComponent<CardId>().CardIdentity && (int)Cards[c + 1].GetComponent<CardId>().CardIdentity == (int)Cards[c + 2].GetComponent<CardId>().CardIdentity && (int)Cards[c + 2].GetComponent<CardId>().CardIdentity == (int)Cards[c + 3].GetComponent<CardId>().CardIdentity && (int)Cards[c + 3].GetComponent<CardId>().CardIdentity == (int)Cards[c + 4].GetComponent<CardId>().CardIdentity)
+                    if ((int)Cards[c].CardIdentity == (int)Cards[c + 1].CardIdentity && (int)Cards[c + 1].CardIdentity == (int)Cards[c + 2].CardIdentity && (int)Cards[c + 2].CardIdentity == (int)Cards[c + 3].CardIdentity && (int)Cards[c + 3].CardIdentity == (int)Cards[c + 4].CardIdentity)
                     {
-                        PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                        PlayingDeck.CleanTheChild();
 
                         Cards[c].transform.parent = PlayingDeck.transform;
-                        Cards[c].GetComponent<CardId>().MoveTheCards();
+                        Cards[c].MoveTheCards();
                         Cards[c + 1].transform.parent = PlayingDeck.transform;
-                        Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 1].MoveTheCards();
                         Cards[c + 2].transform.parent = PlayingDeck.transform;
-                        Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 2].MoveTheCards();
                         Cards[c + 3].transform.parent = PlayingDeck.transform;
-                        Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 3].MoveTheCards();
                         Cards[c + 4].transform.parent = PlayingDeck.transform;
-                        Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 4].MoveTheCards();
 
-                        this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                        ArrangeCardOnDeck.ArrangeCard();
                         CheckRemainingCards();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().FlushCard();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                        PlayingDeck.FlushCard();
+                        PlayingDeck.UpdateText("Flush");
+                        PlayingDeck.ArrangeTheCards();
 
-                        if (NextPlayer.GetComponent<BotAI>() != null)
+                        if (Bot != null)
                         {
-                            NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                            Bot.PlayTurn(0);
                             turn = false;
                         }
-                        else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                        else if (Player != null)
                         {
-                            NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                            NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                            NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                            Player.PassCounter = 0;
+                            Player.turn = true;
+                            Player.TurnOnPassButton();
                             turn = false;
                         }
                         c = Cards.Length;
@@ -989,13 +1359,13 @@ public class BotAI : MonoBehaviour
 
     IEnumerator CheckStraight(int PassCounter)
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         if (Cards.Length >= 5)
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                Cards[i] = this.transform.GetChild(i).gameObject;
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
             }
 
             for (int i = 0; i < Cards.Length; i++)
@@ -1008,7 +1378,7 @@ public class BotAI : MonoBehaviour
             {
                 for (int s = 2; s <= 14; s++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                    if ((int)Cards[c].CardNumber == s)
                     {
                         Cards[c].transform.parent = this.transform;
                     }
@@ -1019,36 +1389,37 @@ public class BotAI : MonoBehaviour
             {
                 if (Cards.Length - c >= 5)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 2].GetComponent<CardId>().CardNumber && (int)Cards[c + 2].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 3].GetComponent<CardId>().CardNumber && (int)Cards[c + 3].GetComponent<CardId>().CardNumber + 1 == (int)Cards[c + 4].GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber + 1 == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber + 1 == (int)Cards[c + 2].CardNumber && (int)Cards[c + 2].CardNumber + 1 == (int)Cards[c + 3].CardNumber && (int)Cards[c + 3].CardNumber + 1 == (int)Cards[c + 4].CardNumber)
                     {
-                        PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                        PlayingDeck.CleanTheChild();
 
                         Cards[c].transform.parent = PlayingDeck.transform;
-                        Cards[c].GetComponent<CardId>().MoveTheCards();
+                        Cards[c].MoveTheCards();
                         Cards[c + 1].transform.parent = PlayingDeck.transform;
-                        Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 1].MoveTheCards();
                         Cards[c + 2].transform.parent = PlayingDeck.transform;
-                        Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 2].MoveTheCards();
                         Cards[c + 3].transform.parent = PlayingDeck.transform;
-                        Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 3].MoveTheCards();
                         Cards[c + 4].transform.parent = PlayingDeck.transform;
-                        Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 4].MoveTheCards();
 
-                        this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                        ArrangeCardOnDeck.ArrangeCard();
                         CheckRemainingCards();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().FlushCard();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                        PlayingDeck.StraightCard();
+                        PlayingDeck.UpdateText("Straight");
+                        PlayingDeck.ArrangeTheCards();
 
-                        if (NextPlayer.GetComponent<BotAI>() != null)
+                        if (Bot != null)
                         {
-                            NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                            Bot.PlayTurn(0);
                             turn = false;
                         }
-                        else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                        else if (Player != null)
                         {
-                            NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                            NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                            NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                            Player.PassCounter = 0;
+                            Player.turn = true;
+                            Player.TurnOnPassButton();
                             turn = false;
                         }
                         c = Cards.Length;
@@ -1064,13 +1435,13 @@ public class BotAI : MonoBehaviour
 
     IEnumerator CheckFourOfKind(int PassCounter)
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         if (Cards.Length >= 5)
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                Cards[i] = this.transform.GetChild(i).gameObject;
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
             }
 
             for (int i = 0; i < Cards.Length; i++)
@@ -1082,7 +1453,7 @@ public class BotAI : MonoBehaviour
             {
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                    if ((int)Cards[c].CardNumber == s)
                     {
                         Cards[c].transform.parent = this.transform;
                     }
@@ -1093,36 +1464,37 @@ public class BotAI : MonoBehaviour
             {
                 if (Cards.Length - c >= 5)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber == (int)Cards[c + 2].GetComponent<CardId>().CardNumber && (int)Cards[c + 2].GetComponent<CardId>().CardNumber == (int)Cards[c + 3].GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber == (int)Cards[c + 2].CardNumber && (int)Cards[c + 2].CardNumber == (int)Cards[c + 3].CardNumber)
                     {
-                        PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                        PlayingDeck.CleanTheChild();
 
                         Cards[c].transform.parent = PlayingDeck.transform;
-                        Cards[c].GetComponent<CardId>().MoveTheCards();
+                        Cards[c].MoveTheCards();
                         Cards[c + 1].transform.parent = PlayingDeck.transform;
-                        Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 1].MoveTheCards();
                         Cards[c + 2].transform.parent = PlayingDeck.transform;
-                        Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 2].MoveTheCards();
                         Cards[c + 3].transform.parent = PlayingDeck.transform;
-                        Cards[c + 3].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 3].MoveTheCards();
                         Cards[c + 4].transform.parent = PlayingDeck.transform;
-                        Cards[c + 4].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 4].MoveTheCards();
 
-                        this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                        ArrangeCardOnDeck.ArrangeCard();
                         CheckRemainingCards();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().FourOfKindCard();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                        PlayingDeck.FourOfKindCard();
+                        PlayingDeck.UpdateText("Four Of A Kind");
+                        PlayingDeck.ArrangeTheCards();
 
-                        if (NextPlayer.GetComponent<BotAI>() != null)
+                        if (Bot != null)
                         {
-                            NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                            Bot.PlayTurn(0);
                             turn = false;
                         }
-                        else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                        else if (Player != null)
                         {
-                            NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                            NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                            NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                            Player.PassCounter = 0;
+                            Player.turn = true;
+                            Player.TurnOnPassButton();
                             turn = false;
                         }
                         c = Cards.Length;
@@ -1138,13 +1510,13 @@ public class BotAI : MonoBehaviour
 
     IEnumerator CheckThreeOfKind(int PassCounter)
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         if (Cards.Length >= 3)
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                Cards[i] = this.transform.GetChild(i).gameObject;
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
             }
 
             for (int i = 0; i < Cards.Length; i++)
@@ -1156,7 +1528,7 @@ public class BotAI : MonoBehaviour
             {
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                    if ((int)Cards[c].CardNumber == s)
                     {
                         Cards[c].transform.parent = this.transform;
                     }
@@ -1167,32 +1539,33 @@ public class BotAI : MonoBehaviour
             {
                 if (Cards.Length - c >= 3)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber == (int)Cards[c + 1].GetComponent<CardId>().CardNumber && (int)Cards[c + 1].GetComponent<CardId>().CardNumber == (int)Cards[c + 2].GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber && (int)Cards[c + 1].CardNumber == (int)Cards[c + 2].CardNumber)
                     {
-                        PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                        PlayingDeck.CleanTheChild();
 
                         Cards[c].transform.parent = PlayingDeck.transform;
-                        Cards[c].GetComponent<CardId>().MoveTheCards();
+                        Cards[c].MoveTheCards();
                         Cards[c + 1].transform.parent = PlayingDeck.transform;
-                        Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 1].MoveTheCards();
                         Cards[c + 2].transform.parent = PlayingDeck.transform;
-                        Cards[c + 2].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 2].MoveTheCards();
 
-                        this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                        ArrangeCardOnDeck.ArrangeCard();
                         CheckRemainingCards();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().ThreeOfKindCard();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                        PlayingDeck.ThreeOfKindCard();
+                        PlayingDeck.UpdateText("Threes");
+                        PlayingDeck.ArrangeTheCards();
 
-                        if (NextPlayer.GetComponent<BotAI>() != null)
+                        if (Bot != null)
                         {
-                            NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                            Bot.PlayTurn(0);
                             turn = false;
                         }
-                        else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                        else if (Player != null)
                         {
-                            NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                            NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                            NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                            Player.PassCounter = 0;
+                            Player.turn = true;
+                            Player.TurnOnPassButton();
                             turn = false;
                         }
                         c = Cards.Length;
@@ -1208,13 +1581,13 @@ public class BotAI : MonoBehaviour
 
     IEnumerator CheckPair(int PassCounter)
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         if (Cards.Length >= 2)
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                Cards[i] = this.transform.GetChild(i).gameObject;
+                Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
             }
 
             for (int i = 0; i < Cards.Length; i++)
@@ -1226,7 +1599,7 @@ public class BotAI : MonoBehaviour
             {
                 for (int c = 0; c < Cards.Length; c++)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber == s)
+                    if ((int)Cards[c].CardNumber == s)
                     {
                         Cards[c].transform.parent = this.transform;
                     }
@@ -1237,30 +1610,31 @@ public class BotAI : MonoBehaviour
             {
                 if (Cards.Length - c >= 2)
                 {
-                    if ((int)Cards[c].GetComponent<CardId>().CardNumber == (int)Cards[c + 1].GetComponent<CardId>().CardNumber)
+                    if ((int)Cards[c].CardNumber == (int)Cards[c + 1].CardNumber)
                     {
-                        PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+                        PlayingDeck.CleanTheChild();
 
                         Cards[c].transform.parent = PlayingDeck.transform;
-                        Cards[c].GetComponent<CardId>().MoveTheCards();
+                        Cards[c].MoveTheCards();
                         Cards[c + 1].transform.parent = PlayingDeck.transform;
-                        Cards[c + 1].GetComponent<CardId>().MoveTheCards();
+                        Cards[c + 1].MoveTheCards();
 
-                        this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+                        ArrangeCardOnDeck.ArrangeCard();
                         CheckRemainingCards();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().PairCard();
-                        PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
+                        PlayingDeck.PairCard();
+                        PlayingDeck.UpdateText("Pair");
+                        PlayingDeck.ArrangeTheCards();
 
-                        if (NextPlayer.GetComponent<BotAI>() != null)
+                        if (Bot != null)
                         {
-                            NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                            Bot.PlayTurn(0);
                             turn = false;
                         }
-                        else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+                        else if (Player != null)
                         {
-                            NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                            NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                            NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                            Player.PassCounter = 0;
+                            Player.turn = true;
+                            Player.TurnOnPassButton();
                             turn = false;
                         }
                         c = Cards.Length;
@@ -1276,11 +1650,11 @@ public class BotAI : MonoBehaviour
 
     IEnumerator SingleCard(int PassCounter)
     {
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         for (int i = 0; i < Cards.Length; i++)
         {
-            Cards[i] = this.transform.GetChild(i).gameObject;
+            Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
         }
 
         for (int i = 0; i < Cards.Length; i++)
@@ -1294,7 +1668,7 @@ public class BotAI : MonoBehaviour
             {
                 for (int s = 0; s < Cards.Length; s++)
                 {
-                    if ((int)Cards[s].GetComponent<CardId>().CardIdentity == i && (int)Cards[s].GetComponent<CardId>().SingleCardNumber == a)
+                    if ((int)Cards[s].CardIdentity == i && (int)Cards[s].SingleCardNumber == a)
                     {
                         Cards[s].transform.parent = this.transform;
                     }
@@ -1304,23 +1678,23 @@ public class BotAI : MonoBehaviour
 
         for (int i = 0; i < Cards.Length; i++)
         {
-            PlayingDeck.GetComponent<PlayingDeckScript>().CleanTheChild();
+            PlayingDeck.CleanTheChild();
             Cards[i].transform.parent = PlayingDeck.transform;
-            Cards[i].GetComponent<CardId>().MoveTheCards();
-            this.GetComponent<ArrangeCardOnDeck>().ArrangeCard();
+            Cards[i].MoveTheCards();
+            ArrangeCardOnDeck.ArrangeCard();
             CheckRemainingCards();
-            PlayingDeck.GetComponent<PlayingDeckScript>().SingleCard();
-            PlayingDeck.GetComponent<PlayingDeckScript>().ArrangeTheCards();
-            if (NextPlayer.GetComponent<BotAI>() != null)
+            PlayingDeck.SingleCard();
+            PlayingDeck.ArrangeTheCards();
+            if (Bot != null)
             {
-                NextPlayer.GetComponent<BotAI>().PlayTurn(0);
+                Bot.PlayTurn(0);
                 turn = false;
             }
-            else if (NextPlayer.GetComponent<PlayerBehaviour>() != null)
+            else if (Player != null)
             {
-                NextPlayer.GetComponent<PlayerBehaviour>().PassCounter = 0;
-                NextPlayer.GetComponent<PlayerBehaviour>().turn = true;
-                NextPlayer.GetComponent<PlayerBehaviour>().TurnOnPassButton();
+                Player.PassCounter = 0;
+                Player.turn = true;
+                Player.TurnOnPassButton();
                 turn = false;
             }
             i = Cards.Length;
@@ -1329,5 +1703,12 @@ public class BotAI : MonoBehaviour
         Debug.Log(this.transform.name + " Single Card Checked ************* ");
 
         yield return null;
+    }
+
+    public void UpdateText(string TextUpdt)
+    {
+        Text.SetActive(false);
+        Text.GetComponent<Text>().text = TextUpdt;
+        Text.SetActive(true);
     }
 }

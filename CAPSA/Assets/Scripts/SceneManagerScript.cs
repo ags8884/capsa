@@ -19,6 +19,11 @@ public class SceneManagerScript : MonoBehaviour {
         StartCoroutine(StartGameAsync());
     }
 
+    public void CharacterSelection()
+    {
+        StartCoroutine(CharacterSelectionAsync());
+    }
+
     public void StartGameAllBot()
     {
         StartCoroutine(StartGameAllBotAsync());
@@ -35,6 +40,25 @@ public class SceneManagerScript : MonoBehaviour {
         {
             StartCoroutine(BackToMainMenuAsync());
         }
+    }
+    IEnumerator CharacterSelectionAsync()
+    {
+        AsyncOperation asyncLoad = SceneManager.LoadSceneAsync("CharacterSelection");
+
+        while (!asyncLoad.isDone)
+        {
+            if (LoadingBar == null)
+            {
+                LoadingBar = GameObject.Find("LoadingBar").GetComponent<Image>();
+            }
+            else
+            {
+                LoadingBar.fillAmount = asyncLoad.progress + 0.1f;
+            }
+            yield return null;
+        }
+
+        LoadingBar = null;
     }
 
     IEnumerator StartGameAsync()

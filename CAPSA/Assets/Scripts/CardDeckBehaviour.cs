@@ -11,12 +11,15 @@ public class CardDeckBehaviour : MonoBehaviour
     public GameObject[] Cards;
     public GameObject[] Decks;
     public int RandNum;
-    public Button PlayButton;
+
+    public void Start()
+    {
+        Time.timeScale = 1;
+        RandomTheCard();
+    }
 
     public void RandomTheCard()
     {
-        PlayButton.interactable = false;
-
         Cards = new GameObject[this.transform.childCount];
 
         for (int i = 0; i < this.transform.childCount; i++)

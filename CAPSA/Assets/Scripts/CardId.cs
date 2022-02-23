@@ -13,14 +13,20 @@ public class CardId : MonoBehaviour {
     public SingleNumberCards SingleCardNumber;
 
     public float Speed;
+    private MeshRenderer Mesh;
 
 	// Use this for initialization
 	void Start ()
     {
+        Mesh = GetComponent<MeshRenderer>();
         this.transform.localRotation = Quaternion.Euler(new Vector3(0, 0, 0));
     }
 
     public void MoveTheCards() {
+        if (Mesh.enabled)
+        {
+            SFXManager.main.CardMoving();
+        }
         StartCoroutine(SCMovetheCards(this.transform.localPosition.z - (this.transform.GetSiblingIndex() * 0.05f)));
     }
 

@@ -1,10 +1,17 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayingDeckScript : MonoBehaviour
 {
+    [Header("MANUAL INPUT")]
     public float Width;
+    public GameObject TheCardDeck;
+    public GameObject Text;
+
+    [Header("NON/AUTO INPUT")]
+    public static PlayingDeckScript main;
     public float Speed;
     public Vector3 leftPoint;
     public Vector3 rightPoint;
@@ -13,10 +20,32 @@ public class PlayingDeckScript : MonoBehaviour
     public float howManyGapsBetweenItems;
     public float gapFromOneItemToTheNextOne;
 
-    public bool Single, Pair, ThreeOfKind, FourOfKind, Straight, Flush, RoyalFlush;
-    public GameObject TheCardDeck;
+    public bool Single, Pair, ThreeOfKind, FourOfKind, Straight, Flush, RoyalFlush, FullHouse;
     public GameObject[] Cards;
 
+    private void Awake()
+    {
+        main = this;
+    }
+
+    public void UpdateText(string TextUpdt)
+    {
+        Text.SetActive(false);
+        Text.GetComponent<Text>().text = TextUpdt;
+        Text.SetActive(true);
+    }
+
+    public void Empty()
+    {
+        Single = false;
+        Pair = false;
+        ThreeOfKind = false;
+        FourOfKind = false;
+        Straight = false;
+        Flush = false;
+        RoyalFlush = false;
+        FullHouse = false;
+    }
 
     public void SingleCard()
     {
@@ -27,6 +56,7 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = false;
         Flush = false;
         RoyalFlush = false;
+        FullHouse = false;
     }
 
     public void PairCard()
@@ -38,6 +68,7 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = false;
         Flush = false;
         RoyalFlush = false;
+        FullHouse = false;
     }
 
     public void ThreeOfKindCard()
@@ -49,6 +80,7 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = false;
         Flush = false;
         RoyalFlush = false;
+        FullHouse = false;
     }
 
     public void ThreeOfKindCardWithPairCard()
@@ -60,6 +92,7 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = false;
         Flush = false;
         RoyalFlush = false;
+        FullHouse = false;
     }
 
     public void FourOfKindCard()
@@ -71,6 +104,7 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = false;
         Flush = false;
         RoyalFlush = false;
+        FullHouse = false;
     }
 
     public void StraightCard()
@@ -82,6 +116,7 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = true;
         Flush = false;
         RoyalFlush = false;
+        FullHouse = false;
     }
 
     public void FlushCard()
@@ -93,6 +128,7 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = false;
         Flush = true;
         RoyalFlush = false;
+        FullHouse = false;
     }
 
     public void RoyalFlushCard()
@@ -104,6 +140,19 @@ public class PlayingDeckScript : MonoBehaviour
         Straight = false;
         Flush = false;
         RoyalFlush = true;
+        FullHouse = false;
+    }
+
+    public void FullHouseCard()
+    {
+        Single = false;
+        Pair = false;
+        ThreeOfKind = false;
+        FourOfKind = false;
+        Straight = false;
+        Flush = false;
+        RoyalFlush = false;
+        FullHouse = true;
     }
 
     public void CleanTheChild() {
@@ -128,7 +177,7 @@ public class PlayingDeckScript : MonoBehaviour
 
     IEnumerator WaitForArrangeTheCards()
     {
-        yield return new WaitForSeconds(0.25f);
+        yield return new WaitForSeconds(0.5f);
 
         leftPoint = new Vector3(0 - Width, 0, 0);
         rightPoint = new Vector3(0 + Width, 0, 0);

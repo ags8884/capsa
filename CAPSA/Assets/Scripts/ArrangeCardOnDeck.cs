@@ -4,7 +4,12 @@ using UnityEngine;
 
 public class ArrangeCardOnDeck : MonoBehaviour
 {
+    [Header("MANUAL INPUT")]
     public float Width;
+    public CardCheckerDeck CCD;
+
+
+    [Header("NON/AUTO INPUT")]
     public float Speed;
     public Vector3 leftPoint;
     public Vector3 rightPoint;
@@ -21,10 +26,9 @@ public class ArrangeCardOnDeck : MonoBehaviour
     public List<int> HeartCards = new List<int>();
     public List<int> ClubCards = new List<int>();
     public List<int> DiamondCards = new List<int>();
-    public GameObject[] Cards;
+    public CardId[] Cards;
     public GameObject[] Decks;
 
-    public CardCheckerDeck CCD;
 
     public void ArrangeCard()
     {
@@ -43,24 +47,24 @@ public class ArrangeCardOnDeck : MonoBehaviour
         float theHighestIndex = howMany;
 
 
-        Cards = new GameObject[this.transform.childCount];
+        Cards = new CardId[this.transform.childCount];
 
         for (int i = 0; i < this.transform.childCount; i++)
         {
-            Cards[i] = this.transform.GetChild(i).gameObject;
-            if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 1)
+            Cards[i] = this.transform.GetChild(i).GetComponent<CardId>();
+            if ((int)Cards[i].CardIdentity == 1)
             {
                 SpadeCardsCount += 1;
             }
-            if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 2)
+            if ((int)Cards[i].CardIdentity == 2)
             {
                 HeartCardsCount += 1;
             }
-            if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 3)
+            if ((int)Cards[i].CardIdentity == 3)
             {
                 ClubCardsCount += 1;
             }
-            if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 4)
+            if ((int)Cards[i].CardIdentity == 4)
             {
                 DiamondCardsCount += 1;
             }
@@ -83,9 +87,9 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 1 && !SpadeCards.Contains((int)Cards[i].GetComponent<CardId>().CardNumber))
+                if ((int)Cards[i].CardIdentity == 1 && !SpadeCards.Contains((int)Cards[i].CardNumber))
                 {
-                    SpadeCards[s] = (int)Cards[i].GetComponent<CardId>().CardNumber;
+                    SpadeCards[s] = (int)Cards[i].CardNumber;
                     i = Cards.Length;
                 }
             }
@@ -95,9 +99,9 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 2 && !HeartCards.Contains((int)Cards[i].GetComponent<CardId>().CardNumber))
+                if ((int)Cards[i].CardIdentity == 2 && !HeartCards.Contains((int)Cards[i].CardNumber))
                 {
-                    HeartCards[s] = (int)Cards[i].GetComponent<CardId>().CardNumber;
+                    HeartCards[s] = (int)Cards[i].CardNumber;
                     i = Cards.Length;
                 }
             }
@@ -107,9 +111,9 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 3 && !ClubCards.Contains((int)Cards[i].GetComponent<CardId>().CardNumber))
+                if ((int)Cards[i].CardIdentity == 3 && !ClubCards.Contains((int)Cards[i].CardNumber))
                 {
-                    ClubCards[s] = (int)Cards[i].GetComponent<CardId>().CardNumber;
+                    ClubCards[s] = (int)Cards[i].CardNumber;
                     i = Cards.Length;
                 }
             }
@@ -119,9 +123,9 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 4 && !DiamondCards.Contains((int)Cards[i].GetComponent<CardId>().CardNumber))
+                if ((int)Cards[i].CardIdentity == 4 && !DiamondCards.Contains((int)Cards[i].CardNumber))
                 {
-                    DiamondCards[s] = (int)Cards[i].GetComponent<CardId>().CardNumber;
+                    DiamondCards[s] = (int)Cards[i].CardNumber;
                     i = Cards.Length;
                 }
             }
@@ -136,7 +140,7 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 1 && (int)Cards[i].GetComponent<CardId>().CardNumber == SpadeCards[s])
+                if ((int)Cards[i].CardIdentity == 1 && (int)Cards[i].CardNumber == SpadeCards[s])
                 {
                     Cards[i].transform.parent = this.transform;
                     i = Cards.Length;
@@ -148,7 +152,7 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 2 && (int)Cards[i].GetComponent<CardId>().CardNumber == HeartCards[s])
+                if ((int)Cards[i].CardIdentity == 2 && (int)Cards[i].CardNumber == HeartCards[s])
                 {
                     Cards[i].transform.parent = this.transform;
                     i = Cards.Length;
@@ -160,7 +164,7 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 3 && (int)Cards[i].GetComponent<CardId>().CardNumber == ClubCards[s])
+                if ((int)Cards[i].CardIdentity == 3 && (int)Cards[i].CardNumber == ClubCards[s])
                 {
                     Cards[i].transform.parent = this.transform;
                     i = Cards.Length;
@@ -172,7 +176,7 @@ public class ArrangeCardOnDeck : MonoBehaviour
         {
             for (int i = 0; i < Cards.Length; i++)
             {
-                if ((int)Cards[i].GetComponent<CardId>().CardIdentity == 4 && (int)Cards[i].GetComponent<CardId>().CardNumber == DiamondCards[s])
+                if ((int)Cards[i].CardIdentity == 4 && (int)Cards[i].CardNumber == DiamondCards[s])
                 {
                     Cards[i].transform.parent = this.transform;
                     i = Cards.Length;
@@ -187,7 +191,7 @@ public class ArrangeCardOnDeck : MonoBehaviour
             {
                 for (int s = 0; s < Cards.Length; s++)
                 {
-                    if ((int)Cards[s].GetComponent<CardId>().CardIdentity == i && (int)Cards[s].GetComponent<CardId>().SingleCardNumber == a)
+                    if ((int)Cards[s].CardIdentity == i && (int)Cards[s].SingleCardNumber == a)
                     {
                         Cards[s].transform.parent = this.transform;
                     }
